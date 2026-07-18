@@ -147,6 +147,18 @@
   #micStatusBtn.show{ display:flex; }
   #micStatusBtn.denied{ border-color:rgba(255,140,140,0.55); color:rgba(255,190,190,0.95); }
 
+  /* HARD DEBUG SYSTEM MONITOR PANELS */
+  #hardDebugMonitor {
+    position: absolute; top: 15px; left: 15px; z-index: 100;
+    background: rgba(0, 0, 0, 0.85); border: 1px solid #00ffcc;
+    color: #00ffcc; font-family: monospace; font-size: 11px;
+    padding: 12px; border-radius: 8px; width: 220px;
+    pointer-events: none; line-height: 1.4; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  }
+  .debug-status-line { display: flex; justify-content: space-between; }
+  .debug-active { color: #fff; font-weight: bold; background: #00aa55; padding: 0 4px; border-radius: 3px; }
+  .debug-inactive { color: #ff3333; }
+
   /* Microphone permission overlay */
   #micOverlay{
     position:absolute; inset:0; z-index:30; display:flex; align-items:center; justify-content:center;
@@ -199,6 +211,17 @@
 <body>
 
 <div id="scene">
+  <!-- Audio & Blow Diagnostic Monitor Panel -->
+  <div id="hardDebugMonitor">
+    <div style="text-align:center; font-weight:bold; border-bottom:1px dashed #00ffcc; padding-bottom:4px; margin-bottom:6px;">AUDIO HARD-CHECK</div>
+    <div class="debug-status-line"><span>Mic Found:</span><span id="db-mic-found" class="debug-inactive">NO</span></div>
+    <div class="debug-status-line"><span>Audio Node State:</span><span id="db-node-state">OFF</span></div>
+    <div class="debug-status-line"><span>Input Strength (RMS):</span><span id="db-rms-level">0.000</span></div>
+    <div class="debug-status-line"><span>Dynamic Threshold:</span><span id="db-thresh-level">0.000</span></div>
+    <div class="debug-status-line"><span>Sustain Frame Count:</span><span id="db-sustain-ms">0ms</span></div>
+    <div class="debug-status-line" style="margin-top:4px; padding-top:4px; border-top:1px dashed #00ffcc;"><span>BLOWING TRIGGER:</span><span id="db-trigger-state" class="debug-inactive">FALSE</span></div>
+  </div>
+
   <div id="hazeTop"></div>
   <canvas id="fx"></canvas>
 
@@ -501,13 +524,7 @@ function drawSeedHead(t, windForce, bloomPulse){
     ctx.beginPath(); ctx.arc(flower.cx,flower.cy,pulseR,0,Math.PI*2); ctx.fill();
   }
 
-  ctx.save();
-  ctx.strokeStyle = 'rgba(255,246,224,0.25)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.ellipse(flower.cx,flower.cy, flower.R*0.78, flower.R*0.78, 0,0,Math.PI*2);
-  ctx.stroke();
-  ctx.restore();
+  mixinAttachedAesthetics();
 
   for(const s of seeds){
     if(!s.attached) continue;
@@ -528,6 +545,16 @@ function drawSeedHead(t, windForce, bloomPulse){
   ctx.beginPath(); ctx.arc(flower.cx,flower.cy,discR,0,Math.PI*2); ctx.fill();
   ctx.fillStyle = 'rgba(35,22,20,0.85)';
   ctx.beginPath(); ctx.arc(flower.cx,flower.cy,discR*0.32,0,Math.PI*2); ctx.fill();
+}
+
+function mixinAttachedAesthetics() {
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,246,224,0.25)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.ellipse(flower.cx,flower.cy, flower.R*0.78, flower.R*0.78, 0,0,Math.PI*2);
+  ctx.stroke();
+  ctx.restore();
 }
 
 /* ---------------------------------------------------------------
@@ -573,19 +600,18 @@ function releaseGust(energy, now){
 function detachSeed(s, t, windForce, windDirX, windDirY){
   s.attached = false;
   const tip = seedTipPosition(s, t, windForce);
-  const outward = { x: Math.cos(tip.angle), y: Math.sin(tip.angle) };
+  const outwardX = Math.cos(tip.angle);
+  const outwardY = Math.sin(tip.angle);
 
   const windAngle = Math.atan2(windDirY, windDirX);
-  const outAngle = Math.atan2(outward.y, outward.x);
-  let heading = outAngle*0.28 + windAngle*0.72;
-  heading += rand(-0.22,0.22);
-
   const launchSpeed = 0.5 + windForce*1.6 + Math.random()*0.35;
 
   flying.push({
     x: tip.x, y: tip.y,
-    heading,
-    baseHeading: heading,
+    outwardX: outwardX,
+    outwardY: outwardY,
+    heading: windAngle,
+    baseHeading: windAngle,
     speed: launchSpeed,
     baseSpeed: launchSpeed,
     waveFreq: rand(0.35,0.75),
@@ -630,6 +656,10 @@ function updateFlying(dt, t, windForce, windDirX, windDirY){
     p.life += dt;
     const lifeT = p.life;
 
+    const radialPushForce = Math.max(0, 2.5 * Math.exp(-lifeT * 2.2));
+    const radX = p.outwardX * radialPushForce;
+    const radY = p.outwardY * radialPushForce;
+
     const rampIn = clamp(lifeT/2.2, 0, 1);
     const fastWave = Math.sin(lifeT*p.waveFreq + p.wavePhase) * p.waveAmp * 0.55 * rampIn;
     const slowDrift = Math.sin(lifeT*p.driftFreq + p.driftPhase) * p.driftAmp * 0.6;
@@ -645,13 +675,16 @@ function updateFlying(dt, t, windForce, windDirX, windDirY){
     const gravity = Math.min(0.006 + lifeT*0.0009, 0.05);
     const flutter = Math.sin(lifeT*p.bobFreq + p.bobPhase) * p.bobAmp * 0.4;
 
-    const vx = Math.cos(heading) * p.speed;
-    const vy = Math.sin(heading) * p.speed - lift + gravity*3 + flutter;
+    const windVelX = Math.cos(heading) * p.speed;
+    const windVelY = Math.sin(heading) * p.speed - lift + gravity*3 + flutter;
+
+    const vx = windVelX + radX;
+    const vy = windVelY + radY;
 
     p.x += vx * step;
     p.y += vy * step;
 
-    p.rot = heading + Math.sin(lifeT*p.tumbleFreq + p.tumblePhase) * 0.5 + p.spin*lifeT*0.05;
+    p.rot = Math.atan2(vy, vx) + Math.sin(lifeT*p.tumbleFreq + p.tumblePhase) * 0.5 + p.spin*lifeT*0.05;
 
     let fade = 1;
     if(p.life > p.maxLife*0.75) fade = 1 - (p.life-p.maxLife*0.75)/(p.maxLife*0.25);
@@ -660,7 +693,7 @@ function updateFlying(dt, t, windForce, windDirX, windDirY){
       continue;
     }
     p.curAlpha = p.alpha * clamp(fade,0,1);
-    p.curSpeed = p.speed;
+    p.curSpeed = Math.hypot(vx, vy);
   }
 }
 
@@ -704,7 +737,7 @@ let windForce = 0;
 let windTarget = 0;
 let windDirX = 0.15, windDirY = -0.35;
 let isBlowing = false, blowEnergy = 0, pendingReleases = [];
-const BLOW_ON = 0.22, BLOW_OFF = 0.12;
+const BLOW_ON = 0.15, BLOW_OFF = 0.08; /* Lowered triggers for higher sensitivity */
 let detachedCount = 0;
 let grantedAt = 0;
 let camZoom = 1, camZoomTarget = 1;
@@ -754,8 +787,8 @@ function setHold(v){
   holding = v;
   if(v) initAudio();
 }
-window.addEventListener('pointerdown', ()=>{
-  if(state!==STATE.READY || micAvailable) return;
+window.addEventListener('pointerdown', (e)=>{
+  if(state!==STATE.READY) return;
   if(panelWrap.classList.contains('show')) return;
   if(micOverlay.classList.contains('show')) return;
   setHold(true);
@@ -863,7 +896,7 @@ document.getElementById('muteBtn').addEventListener('click', ()=>{
 });
 
 /* ---------------------------------------------------------------
-   MICROPHONE BLOW DETECTION
+   MICROPHONE BLOW DETECTION + LOGIC FOR DEBUG
 --------------------------------------------------------------- */
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
 const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
@@ -881,6 +914,14 @@ const micRetryBtn = document.getElementById('micRetryBtn');
 const micDismissBtn = document.getElementById('micDismissBtn');
 const micStatusBtn = document.getElementById('micStatusBtn');
 
+// Debug element shortcuts
+const dbMicFound = document.getElementById('db-mic-found');
+const dbNodeState = document.getElementById('db-node-state');
+const dbRmsLevel = document.getElementById('db-rms-level');
+const dbThreshLevel = document.getElementById('db-thresh-level');
+const dbSustainMs = document.getElementById('db-sustain-ms');
+const dbTriggerState = document.getElementById('db-trigger-state');
+
 function showMicOverlay(icon, title, msg, showRetry){
   micIcon.textContent = icon;
   micTitle.textContent = title;
@@ -895,113 +936,104 @@ function useHoldFallback(){
   hintDefaultHTML = 'Press &amp; Hold to Blow';
   if(hintEl.classList.contains('show') || state===STATE.READY){ hintEl.innerHTML = hintDefaultHTML; }
   micStatusBtn.classList.add('show','denied');
+  dbMicFound.textContent = "FALLBACK (HOLD)";
+  dbMicFound.className = "debug-active";
 }
 
 function handleMicError(err){
   const name = err && err.name;
   if(name === 'NotAllowedError' || name === 'PermissionDeniedError' || name === 'SecurityError'){
     const howTo = isIOS
-      ? 'Microphone access is blocked. Open Settings → Safari (or your browser app) → Microphone, allow it for this site, then come back and try again.'
-      : isMobile
-        ? 'Microphone access is blocked. Tap the lock or site-info icon next to the address bar, allow the microphone, then try again.'
-        : 'Microphone access is blocked. Click the camera/mic icon in your browser\'s address bar, allow it, then try again.';
-    // FIXED: Changed final argument to false so the broken retry button doesn't show up on explicit browser blocks
+      ? 'Microphone access is blocked. Open Settings → Safari → Microphone, allow it, then try again.'
+      : 'Microphone access is blocked. Check your address bar lock options.';
     showMicOverlay('🔒', 'Microphone Blocked', howTo, false);
-  } else if(name === 'NotFoundError' || name === 'DevicesNotFoundError'){
-    showMicOverlay('🎤', 'No Microphone Found', 'We couldn\'t find a working microphone on this device. You can still make your wish — press and hold anywhere to blow.', false);
   } else {
-    showMicOverlay('🎤', 'Microphone Unavailable', 'We couldn\'t connect to your microphone. You can still make your wish — press and hold anywhere to blow.', true);
+    showMicOverlay('🎤', 'Microphone Unavailable', 'Falling back to touch blow mode.', false);
   }
   useHoldFallback();
 }
 
-micRetryBtn.addEventListener('click', ()=>{
-  hideMicOverlay();
-  requestMic();
-});
-micDismissBtn.addEventListener('click', ()=>{
-  hideMicOverlay();
-  useHoldFallback();
-});
-micStatusBtn.addEventListener('click', ()=>{
-  requestMic();
-});
+micRetryBtn.addEventListener('click', ()=>{ hideMicOverlay(); requestMic(); });
+micDismissBtn.addEventListener('click', ()=>{ hideMicOverlay(); useHoldFallback(); });
+micStatusBtn.addEventListener('click', ()=>{ requestMic(); });
 
 async function requestMic(){
   if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-    showMicOverlay('🎤', 'Microphone Not Supported', 'This browser doesn\'t support microphone access. You can still make your wish — press and hold anywhere to blow.', false);
     useHoldFallback();
     return;
   }
   let stream;
   try{
     stream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation:false, noiseSuppression:false, autoGainControl:false, channelCount:1 }
+      audio: { echoCancellation:false, noiseSuppression:false, autoGainControl:false }
     });
   }catch(e1){
-    try{
-      stream = await navigator.mediaDevices.getUserMedia({ audio:true });
-    }catch(e2){
-      handleMicError(e2);
-      return;
-    }
+    try{ stream = await navigator.mediaDevices.getUserMedia({ audio:true }); }
+    catch(e2){ handleMicError(e2); return; }
   }
   try{
     initAudio();
     const src = audioCtx.createMediaStreamSource(stream);
     const analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 1024;
+    analyser.fftSize = 512; // Lower window for responsive checks
     src.connect(analyser);
+
     micAvailable = true;
+    dbMicFound.textContent = "YES";
+    dbMicFound.className = "debug-active";
     micStatusBtn.classList.remove('show','denied');
     hideMicOverlay();
-    hintDefaultHTML = 'Blow to Release the Bloom';
-    if(state===STATE.READY) hintEl.innerHTML = hintDefaultHTML;
+    
     micCalibStart = null; micCalibSamples = []; micNoiseFloor = null; micSustainMs = 0;
-    const freqData = new Uint8Array(analyser.frequencyBinCount);
     const timeData = new Uint8Array(analyser.fftSize);
 
     function poll(){
+      if(audioCtx) dbNodeState.textContent = audioCtx.state.toUpperCase();
+      
       analyser.getByteTimeDomainData(timeData);
-      analyser.getByteFrequencyData(freqData);
       let sumSq=0;
-      for(let i=0;i<timeData.length;i++){ const v=(timeData[i]-128)/128; sumSq += v*v; }
+      for(let i=0; i<timeData.length; i++){ 
+        const v = (timeData[i]-128)/128; 
+        sumSq += v*v; 
+      }
       const rms = Math.sqrt(sumSq/timeData.length);
-      let logSum=0, sum=0, n=freqData.length;
-      for(let i=0;i<n;i++){ const m = Math.max(freqData[i],1); logSum += Math.log(m); sum += m; }
-      const geo = Math.exp(logSum/n);
-      const ari = sum/n;
-      const flatness = ari>0 ? geo/ari : 0;
+      dbRmsLevel.textContent = rms.toFixed(4);
 
       const nowMs = performance.now();
       const dtms = clamp(nowMs-micLastMs, 0, 100); micLastMs = nowMs;
 
       if(micCalibStart===null) micCalibStart = nowMs;
-      if(nowMs - micCalibStart < 700){
+      if(nowMs - micCalibStart < 500){
         micCalibSamples.push(rms);
         micForce = 0;
+        dbThreshLevel.textContent = "CALIBRATING...";
         requestAnimationFrame(poll);
         return;
       }
       if(micNoiseFloor===null){
         const sum2 = micCalibSamples.reduce((a,b)=>a+b,0);
-        micNoiseFloor = micCalibSamples.length ? sum2/micCalibSamples.length : 0.02;
+        micNoiseFloor = micCalibSamples.length ? sum2/micCalibSamples.length : 0.015;
       }
 
-      const dynThreshold = Math.max(0.05, micNoiseFloor*2.4 + 0.02);
-      const breathy = rms > dynThreshold && flatness > 0.28;
-      micSustainMs = breathy ? micSustainMs + dtms : Math.max(0, micSustainMs - dtms*1.6);
+      // Tuned for high sensitivity blow detection
+      const dynThreshold = Math.max(0.018, micNoiseFloor * 2.0);
+      dbThreshLevel.textContent = dynThreshold.toFixed(4);
+
+      // A blow generates rapid noise differences
+      const breathy = rms > dynThreshold;
+      micSustainMs = breathy ? micSustainMs + dtms : Math.max(0, micSustainMs - dtms*2.0);
+      dbSustainMs.textContent = Math.round(micSustainMs) + "ms";
 
       let target = 0;
-      if(micSustainMs > 110){
-        target = clamp((rms-dynThreshold)*7, 0, 1);
+      if(micSustainMs > 60){ // 60ms continuous energy registers blow
+        target = clamp((rms-dynThreshold)*12, 0, 1);
       }
-      micForce += (target-micForce)*(target>micForce ? 0.35 : 0.2);
+      micForce += (target-micForce)*(target>micForce ? 0.4 : 0.2);
+      
       requestAnimationFrame(poll);
     }
     poll();
   }catch(err){
-    showMicOverlay('🎤', 'Microphone Unavailable', 'Something went wrong setting up the microphone. You can still make your wish — press and hold anywhere to blow.', true);
     useHoldFallback();
   }
 }
@@ -1020,7 +1052,11 @@ function frame(){
   const activeInput = (state===STATE.READY);
   const inputForce = micAvailable ? micForce : (holding ? 1 : 0);
   windTarget = activeInput ? clamp(inputForce,0,1) : 0;
-  windForce += (windTarget-windForce)*(windTarget>windForce?0.22:0.08);
+  windForce += (windTarget-windForce)*(windTarget>windForce?0.25:0.08);
+
+  // Hard UI trigger diagnostics text update
+  dbTriggerState.textContent = isBlowing ? "BLOWING (ACTIVE)" : (windForce > BLOW_ON ? "READY TO BREAK" : "FALSE");
+  dbTriggerState.className = isBlowing ? "debug-active" : "debug-inactive";
 
   camZoom += (camZoomTarget-camZoom)*0.03;
   camOffsetY += (camOffsetYTarget-camOffsetY)*0.03;

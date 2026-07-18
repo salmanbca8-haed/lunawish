@@ -1,473 +1,331 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Make a Wish</title>
-  <style>
-    /* Global Reset & Matching Dusk Gradient Background */
-    body, html {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background: linear-gradient(to bottom, #44174e 0%, #682c5f 40%, #bd515e 80%, #d8766c 100%);
-      font-family: 'Inter', 'Segoe UI', Roboto, sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      color: #fcecfc;
-    }
-    
-    /* Interactive Background Canvas */
-    canvas {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 1;
-    }
-
-    /* Elegant Glassmorphism Card Container */
-    .form-container {
-      position: relative;
-      z-index: 2;
-      text-align: center;
-      transition: all 1s cubic-bezier(0.4, 0, 0.2, 1);
-      width: 85%;
-      max-width: 460px;
-      padding: 50px 40px;
-      background: rgba(255, 255, 255, 0.05);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1.5px solid rgba(255, 255, 255, 0.15);
-      border-radius: 32px;
-      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.25),
-                  inset 0 1px 2px rgba(255, 255, 255, 0.2);
-    }
-
-    /* Vertical stem line extending downward from the card */
-    .form-container::after {
-      content: '';
-      position: absolute;
-      bottom: -100vh;
-      left: 50%;
-      width: 1.5px;
-      height: 100vh;
-      background: rgba(255, 255, 255, 0.2);
-      z-index: 1;
-      pointer-events: none;
-    }
-
-    h1 {
-      font-family: 'Cinzel', 'Georgia', serif;
-      font-size: 2.3rem;
-      margin: 0 0 4px 0;
-      letter-spacing: 2px;
-      font-weight: 400;
-      color: #ffffff;
-    }
-
-    .subtitle {
-      font-size: 0.75rem;
-      letter-spacing: 5px;
-      text-transform: uppercase;
-      opacity: 0.7;
-      margin-bottom: 40px;
-      color: #ffffff;
-      font-weight: 500;
-    }
-
-    .input-group {
-      margin-bottom: 25px;
-      text-align: left;
-    }
-
-    input[type="text"] {
-      width: 100%;
-      background: transparent;
-      border: none;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.3);
-      color: #ffffff;
-      padding: 10px 4px;
-      font-size: 1.05rem;
-      outline: none;
-      box-sizing: border-box;
-      transition: border-bottom-color 0.3s ease;
-    }
-
-    input[type="text"]:focus {
-      border-bottom-color: rgba(255, 255, 255, 0.8);
-    }
-
-    .button-wrapper {
-      text-decoration: none;
-      display: block;
-      margin-top: 35px;
-    }
-
-    .button {
-      width: 100%;
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      color: #ffffff;
-      padding: 16px 0;
-      font-size: 0.9rem;
-      font-weight: 600;
-      cursor: pointer;
-      border-radius: 50px;
-      letter-spacing: 4px;
-      text-transform: uppercase;
-      transition: all 0.3s ease;
-    }
-
-    .button:hover {
-      background: rgba(255, 255, 255, 0.2);
-      border-color: rgba(255, 255, 255, 0.6);
-      box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
-    }
-
-    /* --- ADMIN SYSTEM STYLES --- */
-    #adminTriggerDot {
-      position: fixed;
-      bottom: 18px;
-      right: 18px;
-      width: 7px;
-      height: 7px;
-      background: rgba(255, 255, 255, 0.22);
-      border-radius: 50%;
-      cursor: pointer;
-      z-index: 100;
-      transition: all 0.25s ease;
-    }
-    #adminTriggerDot:hover {
-      background: rgba(255, 255, 255, 0.85);
-      box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
-      transform: scale(1.4);
-    }
-
-    .admin-panel {
-      position: fixed;
-      z-index: 90;
-      width: 90%;
-      max-width: 500px;
-      height: 75vh;
-      padding: 30px 24px;
-      background: rgba(24, 10, 32, 0.88);
-      backdrop-filter: blur(35px);
-      -webkit-backdrop-filter: blur(35px);
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      border-radius: 28px;
-      box-shadow: 0 40px 90px rgba(0,0,0,0.65);
-      display: none;
-      flex-direction: column;
-      opacity: 0;
-      transform: scale(0.95);
-      transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.1);
-    }
-    .admin-panel.active {
-      display: flex;
-      opacity: 1;
-      transform: scale(1);
-    }
-    .admin-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.15);
-      padding-bottom: 12px;
-    }
-    .admin-header h2 {
-      margin: 0;
-      font-family: 'Cinzel', serif;
-      font-size: 1.4rem;
-      letter-spacing: 1px;
-    }
-    .close-btn {
-      background: transparent;
-      border: none;
-      color: rgba(255, 255, 255, 0.6);
-      font-size: 20px;
-      cursor: pointer;
-    }
-    .close-btn:hover { color: #fff; }
-    
-    .submissions-list {
-      flex: 1;
-      overflow-y: auto;
-      padding-right: 4px;
-      text-align: left;
-    }
-    .submissions-list::-webkit-scrollbar { width: 4px; }
-    .submissions-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
-
-    .submission-item {
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      padding: 14px 16px;
-      border-radius: 14px;
-      margin-bottom: 12px;
-    }
-    .submission-meta {
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.75rem;
-      opacity: 0.5;
-      margin-bottom: 6px;
-    }
-    .submission-name { font-weight: 600; color: #ffccd5; }
-    .submission-wish {
-      font-size: 0.95rem;
-      line-height: 1.4;
-      color: #fff;
-      font-style: italic;
-      word-break: break-word;
-    }
-    .no-data {
-      text-align: center;
-      opacity: 0.5;
-      margin-top: 40px;
-      font-style: italic;
-    }
-  </style>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-</head>
-<body>
-
-  <canvas id="canvas"></canvas>
-
-  <div class="form-container" id="formPage">
-    <h1>make a wish</h1>
-    <div class="subtitle">The wind is listening</div>
-    
-    <div class="input-group">
-      <input type="text" id="nameInput" autocomplete="off" placeholder="Name">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Make a Wish</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: linear-gradient(to bottom, #2b1055 0%, #75225b 45%, #b54f5f 80%, #d37762 100%);
+        color: #fef9ff;
+        font-family: "Inter", "Segoe UI", Roboto, Arial, sans-serif;
+      }
+      canvas {
+        position: fixed;
+        inset: 0;
+        display: block;
+        width: 100%;
+        height: 100%;
+        z-index: 0;
+      }
+      .page {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        z-index: 1;
+      }
+      .glass-card {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        padding: 2rem;
+        pointer-events: none;
+      }
+      .card {
+        width: min(92vw, 430px);
+        padding: 2.3rem 2rem 2rem;
+        border-radius: 30px;
+        background: rgba(255, 255, 255, 0.14);
+        border: 1px solid rgba(255, 255, 255, 0.24);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+        box-shadow: 0 24px 60px rgba(12, 8, 28, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.26);
+        pointer-events: auto;
+      }
+      h1 {
+        margin: 0 0 0.35rem;
+        font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+        font-size: clamp(2rem, 4.3vw, 2.8rem);
+        font-weight: 400;
+        letter-spacing: 0.06em;
+        text-transform: lowercase;
+        color: #fff5ff;
+        text-align: center;
+      }
+      .eyebrow {
+        margin: 0 0 1.15rem;
+        text-align: center;
+        font-size: 0.72rem;
+        font-weight: 600;
+        letter-spacing: 0.36em;
+        text-transform: uppercase;
+        color: rgba(255, 240, 255, 0.8);
+      }
+      .input-line {
+        display: block;
+        margin: 1.4rem 0 1.2rem;
+        padding-bottom: 0.6rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+      }
+      .input-line input {
+        width: 100%;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: #fffdfb;
+        font-size: 0.98rem;
+        font-family: inherit;
+        padding: 0;
+      }
+      .input-line input::placeholder {
+        color: rgba(255, 255, 255, 0.67);
+      }
+      .input-line + .input-line {
+        margin-top: 0.8rem;
+      }
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        margin-top: 0.85rem;
+        border: 1px solid rgba(255, 255, 255, 0.45);
+        border-radius: 999px;
+        padding: 0.8rem 1.2rem;
+        background: rgba(255, 255, 255, 0.1);
+        color: #fff5ff;
+        letter-spacing: 0.24em;
+        text-transform: uppercase;
+        font-size: 0.78rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 180ms ease, background 180ms ease, box-shadow 180ms ease;
+        box-shadow: 0 10px 26px rgba(46, 20, 72, 0.16);
+      }
+      .button:hover {
+        transform: translateY(-1px);
+        background: rgba(255, 255, 255, 0.16);
+        box-shadow: 0 16px 38px rgba(46, 20, 72, 0.2);
+      }
+      .admin-dot {
+        position: fixed;
+        right: 0.95rem;
+        bottom: 0.95rem;
+        z-index: 4;
+        width: 0.8rem;
+        height: 0.8rem;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.8);
+        box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.16);
+        cursor: pointer;
+        opacity: 0.55;
+      }
+      .admin-panel {
+        position: fixed;
+        right: 1rem;
+        bottom: 2.4rem;
+        z-index: 5;
+        width: min(90vw, 320px);
+        max-height: 60vh;
+        overflow: auto;
+        padding: 0.95rem 1rem;
+        border-radius: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.24);
+        background: rgba(9, 5, 24, 0.82);
+        backdrop-filter: blur(12px);
+        box-shadow: 0 18px 42px rgba(0, 0, 0, 0.26);
+        display: none;
+      }
+      .admin-panel h3 {
+        margin: 0 0 0.65rem;
+        font-size: 0.8rem;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: rgba(255, 244, 255, 0.9);
+      }
+      .admin-panel ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        gap: 0.5rem;
+      }
+      .admin-panel li {
+        padding: 0.55rem 0.7rem;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.08);
+        font-size: 0.84rem;
+        line-height: 1.45;
+        color: rgba(255, 248, 255, 0.92);
+        word-break: break-word;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="scene"></canvas>
+    <div class="page">
+      <div class="glass-card">
+        <div class="card">
+          <h1>make a wish</h1>
+          <p class="eyebrow">THE WIND IS LISTENING</p>
+          <label class="input-line">
+            <input id="nameInput" type="text" placeholder="your name..." />
+          </label>
+          <label class="input-line">
+            <input id="wishInput" type="text" placeholder="whisper your wish here..." />
+          </label>
+          <a id="beginButton" class="button" href="flower.html">BEGIN</a>
+        </div>
+      </div>
     </div>
-    
-    <div class="input-group">
-      <input type="text" id="wishInput" autocomplete="off" placeholder="Your Wish">
+    <div id="adminDot" class="admin-dot" title="Admin wishes"></div>
+    <div id="adminPanel" class="admin-panel">
+      <h3>Saved wishes</h3>
+      <ul id="wishList"></ul>
     </div>
 
-    <div class="button-wrapper">
-      <button id="beginButton" class="button">Begin</button>
-    </div>
-  </div>
+    <script>
+      const nameInput = document.getElementById('nameInput');
+      const wishInput = document.getElementById('wishInput');
+      const beginButton = document.getElementById('beginButton');
+      const adminDot = document.getElementById('adminDot');
+      const adminPanel = document.getElementById('adminPanel');
+      const wishList = document.getElementById('wishList');
+      const storageKey = 'make-wish-entries';
 
-  <div id="adminTriggerDot" title="Admin panel access"></div>
+      let firebaseReady = null;
+      let firebaseFirestore = null;
+      let wishesRef = null;
 
-  <div class="admin-panel" id="adminPanel">
-    <div class="admin-header">
-      <h2>Wish Repository</h2>
-      <button class="close-btn" id="closeAdmin">✕</button>
-    </div>
-    <div class="submissions-list" id="submissionsList">
-      <div class="no-data">Loading wishes...</div>
-    </div>
-  </div>
-
-  <!-- Firebase SDK Setup -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyDHmQqiNm5qmsk5KGpupZj_O4Ck8sgEUh0",
-      authDomain: "lunawish-ee318.firebaseapp.com",
-      projectId: "lunawish-ee318",
-      storageBucket: "lunawish-ee318.firebasestorage.app",
-      messagingSenderId: "218292977596",
-      appId: "1:218292977596:web:3ba5e4518221f92ef675b9",
-      measurementId: "G-S7WV9MVB6D"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const database = getDatabase(app);
-
-    // Canvas Background Setup
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    let width = canvas.width = window.innerWidth;
-    let height = canvas.height = window.innerHeight;
-
-    window.addEventListener('resize', () => {
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
-    });
-
-    class Particle {
-      constructor(x, y) {
-        this.x = x;
-        this.y = y;
-        this.vx = (Math.random() - 0.2) * 2.5 + 2; 
-        this.vy = (Math.random() - 0.5) * 1.5 - 0.8; 
-        this.alpha = 1;
-        this.size = Math.random() * 2 + 1;
-        this.fade = Math.random() * 0.003 + 0.003;
-      }
-      update() {
-        this.x += this.vx;
-        this.y += this.vy;
-        this.alpha -= this.fade;
-      }
-      draw() {
-        ctx.save();
-        ctx.globalAlpha = this.alpha;
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-      }
-    }
-
-    let particles = [];
-    let isBlowing = false;
-
-    function triggerBlowEffect() {
-      isBlowing = true;
-      for (let i = 0; i < 160; i++) {
-        particles.push(new Particle(width * 0.3 + (Math.random() - 0.5) * 40, height * 0.5 + (Math.random() - 0.5) * 40));
-      }
-      animate();
-    }
-
-    function animate() {
-      if (!isBlowing) return;
-      ctx.clearRect(0, 0, width, height);
-
-      if (particles.length < 300 && Math.random() > 0.3) {
-        particles.push(new Particle(width * 0.3 + (Math.random() - 0.5) * 60, height * 0.5 + (Math.random() - 0.5) * 60));
+      if (!console.firebase) {
+        console.firebase = function (label, payload) {
+          console.info(`[firebase:${label}]`, payload);
+        };
       }
 
-      for (let i = particles.length - 1; i >= 0; i--) {
-        particles[i].update();
-        particles[i].draw();
-        if (particles[i].alpha <= 0) {
-          particles.splice(i, 1);
+      async function ensureFirebase() {
+        if (firebaseReady !== null) {
+          return firebaseReady;
         }
-      }
-      requestAnimationFrame(animate);
-    }
 
-    const beginButton = document.getElementById('beginButton');
-    const formPage = document.getElementById('formPage');
-    const nameInput = document.getElementById('nameInput');
-    const wishInput = document.getElementById('wishInput');
+        try {
+          const firebaseApp = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
+          const firebaseAnalytics = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js');
+          const firestoreModule = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
 
-    beginButton.addEventListener('click', (event) => {
-      event.preventDefault();
-      
-      const nameText = nameInput.value.trim();
-      const wishText = wishInput.value.trim();
+          const firebaseConfig = {
+            apiKey: 'AIzaSyDHmQqiNm5qmsk5KGpupZj_O4Ck8sgEUh0',
+            authDomain: 'lunawish-ee318.firebaseapp.com',
+            projectId: 'lunawish-ee318',
+            storageBucket: 'lunawish-ee318.firebasestorage.app',
+            messagingSenderId: '218292977596',
+            appId: '1:218292977596:web:3ba5e4518221f92ef675b9',
+            measurementId: 'G-S7WV9MVB6D',
+          };
 
-      if (!wishText) {
-        alert("Please enter a wish before beginning.");
-        return;
-      }
+          const app = firebaseApp.initializeApp(firebaseConfig);
+          try {
+            firebaseAnalytics.getAnalytics(app);
+          } catch (error) {
+            console.warn('Analytics unavailable', error);
+          }
 
-      // Hard Check Fix: Fire database push asynchronously without blocking UI flow execution
-      try {
-        push(ref(database, 'wishes'), {
-          name: nameText || "Anonymous",
-          wish: wishText,
-          timestamp: Date.now()
-        }).catch(err => {
-          console.error("Firebase write background rejection: ", err);
-        });
-      } catch (e) {
-        console.error("Database structural error context: ", e);
-      }
-      
-      // Save values safely locally
-      localStorage.setItem('userName', nameText);
-      localStorage.setItem('userWish', wishText);
-
-      // Instantly trigger animations and change page state
-      formPage.style.opacity = '0';
-      formPage.style.transform = 'translateY(-10px)';
-      
-      setTimeout(() => {
-        formPage.style.display = 'none';
-        triggerBlowEffect();
-        
-        setTimeout(() => {
-          window.location.href = "./flower.html";
-        }, 2300);
-      }, 800);
-    });
-
-    /* --- ADMIN LOGIC --- */
-    const adminDot = document.getElementById('adminTriggerDot');
-    const adminPanel = document.getElementById('adminPanel');
-    const closeAdmin = document.getElementById('closeAdmin');
-    const submissionsList = document.getElementById('submissionsList');
-    
-    const ADMIN_PASS = "admin123"; 
-    let isListeningToWishes = false;
-
-    adminDot.addEventListener('click', () => {
-      const entry = prompt("Enter Administration Key:");
-      if (entry === ADMIN_PASS) {
-        adminPanel.classList.add('active');
-        if (!isListeningToWishes) {
-          loadLiveSubmissions();
+          const db = firestoreModule.getFirestore(app);
+          wishesRef = firestoreModule.collection(db, 'wishes');
+          firebaseFirestore = firestoreModule;
+          firebaseReady = true;
+        } catch (error) {
+          console.warn('Firebase unavailable; continuing with local wish storage.', error);
+          firebaseReady = false;
         }
-      } else if (entry !== null) {
-        alert("Access denied. Incorrect encryption key provided.");
+
+        return firebaseReady;
       }
-    });
 
-    closeAdmin.addEventListener('click', () => {
-      adminPanel.classList.remove('active');
-    });
+      async function saveWish(wishText) {
+        const trimmedName = (nameInput.value || '').trim();
+        const trimmed = (wishText || '').trim();
+        if (!trimmed) return false;
 
-    function loadLiveSubmissions() {
-      isListeningToWishes = true;
-      const wishesRef = ref(database, 'wishes');
-      
-      onValue(wishesRef, (snapshot) => {
-        submissionsList.innerHTML = '';
-        const data = snapshot.val();
-        
-        if (!data) {
-          submissionsList.innerHTML = '<div class="no-data">No wishes have been whispered yet.</div>';
+        const entry = {
+          name: trimmedName || 'Anonymous',
+          text: trimmed,
+          createdAt: new Date().toISOString(),
+        };
+
+        const existing = JSON.parse(localStorage.getItem(storageKey) || '[]');
+        existing.push(entry);
+        localStorage.setItem(storageKey, JSON.stringify(existing));
+
+        const firebaseAvailable = await ensureFirebase();
+        if (firebaseAvailable && firebaseFirestore && wishesRef) {
+          try {
+            await firebaseFirestore.addDoc(wishesRef, entry);
+            console.firebase('wish-saved', entry);
+          } catch (error) {
+            console.error('Could not save wish to Firebase:', error);
+            console.firebase('wish-saved-fallback', entry);
+          }
+        } else {
+          console.firebase('wish-saved-local', entry);
+        }
+
+        return true;
+      }
+
+      function renderWishes(entries) {
+        wishList.innerHTML = '';
+        if (!entries.length) {
+          const item = document.createElement('li');
+          item.textContent = 'No wishes yet.';
+          wishList.appendChild(item);
           return;
         }
 
-        const entries = Object.keys(data).map(key => data[key]);
-        entries.sort((a, b) => b.timestamp - a.timestamp);
-
-        entries.forEach(item => {
-          const itemDiv = document.createElement('div');
-          itemDiv.className = 'submission-item';
-          
-          const timeString = new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-          const dateString = new Date(item.timestamp).toLocaleDateString([], {month: 'short', day: 'numeric'});
-
-          itemDiv.innerHTML = `
-            <div class="submission-meta">
-              <span class="submission-name">${escapeHTML(item.name)}</span>
-              <span>${dateString} • ${timeString}</span>
-            </div>
-            <div class="submission-wish">"${escapeHTML(item.wish)}"</div>
-          `;
-          submissionsList.appendChild(itemDiv);
+        entries.slice().reverse().forEach((entry) => {
+          const item = document.createElement('li');
+          const label = entry.name ? `${entry.name}: ` : '';
+          item.textContent = `${label}${entry.text || entry.value || '—'}`;
+          wishList.appendChild(item);
         });
-      }, (error) => {
-        console.error(error);
-        submissionsList.innerHTML = '<div class="no-data" style="color:#ff8888;">Failed to read database streams. Check rules.</div>';
-      });
-    }
+      }
 
-    function escapeHTML(str) {
-      if(!str) return '';
-      return str.replace(/[&<>"']/g, function(m) {
-        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
+      function loadLocalWishes() {
+        try {
+          const saved = JSON.parse(localStorage.getItem(storageKey) || '[]');
+          renderWishes(saved);
+        } catch (error) {
+          renderWishes([]);
+        }
+      }
+
+      adminDot.addEventListener('click', () => {
+        const isVisible = adminPanel.style.display === 'block';
+        adminPanel.style.display = isVisible ? 'none' : 'block';
+        if (!isVisible) {
+          loadLocalWishes();
+        }
       });
-    }
-  </script>
-</body>
+
+      beginButton.addEventListener('click', async (event) => {
+        event.preventDefault();
+        await saveWish(wishInput.value);
+        window.location.assign(beginButton.getAttribute('href'));
+      });
+
+      loadLocalWishes();
+    </script>
+  </body>
 </html>

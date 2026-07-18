@@ -153,7 +153,7 @@
     <div class="sub">The wind has carried your wish beyond the horizon.</div>
   </div>
 
-  <div id="hint">Press &amp; Hold to Blow<span class="sub" id="hintSub"></span></div>
+  <div id="hint">Blow to Release the Bloom<span class="sub" id="hintSub"></span></div>
 
   <button id="muteBtn" title="Toggle sound">♪</button>
 
@@ -311,6 +311,7 @@ function resetFlower(){
   pendingReleases = [];
   isBlowing = false;
   blowEnergy = 0;
+  blowPhaseIndex = 0;
 }
 
 /* ---------------------------------------------------------------
@@ -491,7 +492,11 @@ function drawSeedHead(t, windForce, bloomPulse){
 function releaseGust(energy, now){
   const attached = seeds.filter(s=>s.attached);
   if(attached.length===0) return;
+
+  const phase = Math.min(blowPhaseIndex, BLOW_RELEASE_FRACTIONS.length - 1);
+  const releaseFraction = BLOW_RELEASE_FRACTIONS[phase];
   const windAngleNow = currentWindAngle(now);
+
   // weighted-random pick: windward-facing seeds are more likely to go, but it's
   // never a clean deterministic sweep — plenty of randomness in who lets go
   const scored = attached.map(s=>{
@@ -500,9 +505,13 @@ function releaseGust(energy, now){
     return { s, score };
   });
   scored.sort((a,b)=>b.score-a.score);
-  const frac = clamp(energy*0.5, 0.12, 0.62);
-  let count = Math.round(attached.length*frac);
-  count = Math.max(count, Math.min(6, attached.length));
+
+  let count = Math.ceil(attached.length * releaseFraction);
+  count = Math.max(1, Math.min(attached.length, count));
+  if(phase === BLOW_RELEASE_FRACTIONS.length - 1){
+    count = attached.length;
+  }
+
   let batch = scored.slice(0, count).map(o=>o.s);
 
   // shuffle so the release order itself is random, not angle-ordered
@@ -514,6 +523,10 @@ function releaseGust(energy, now){
     const delay = rand(0, 0.6);   // random pop time within the gust window, not sequential
     pendingReleases.push({ seed:s, time: now+delay });
   });
+
+  if(blowPhaseIndex < BLOW_RELEASE_FRACTIONS.length - 1){
+    blowPhaseIndex += 1;
+  }
 }
 
 function detachSeed(s, t, windForce, windDirX, windDirY){
@@ -676,6 +689,8 @@ let detachedCount = 0;
 let grantedAt = 0;
 let camZoom = 1, camZoomTarget = 1;
 let camOffsetY = 0, camOffsetYTarget = 0;
+let blowPhaseIndex = 0;
+const BLOW_RELEASE_FRACTIONS = [0.28, 0.36, 1.0];
 
 const hintEl = document.getElementById('hint');
 let hintDefaultHTML = hintEl.innerHTML;
@@ -737,23 +752,6 @@ beginBtn.addEventListener('click', ()=>{
   initAudio();
   goReady();
 });
-
-/* ---------------------------------------------------------------
-   INPUT: PRESS & HOLD (mouse + touch)
---------------------------------------------------------------- */
-let holding = false;
-function setHold(v){
-  holding = v;
-  if(v) initAudio();
-}
-window.addEventListener('pointerdown', (e)=>{
-  if(state!==STATE.READY) return;
-  if(panelWrap.classList.contains('show')) return;
-  setHold(true);
-});
-window.addEventListener('pointerup', ()=> setHold(false));
-window.addEventListener('pointercancel', ()=> setHold(false));
-window.addEventListener('blur', ()=> setHold(false));
 
 /* ---------------------------------------------------------------
    AUDIO — synthesized ambient wind + chimes + pad (no external assets)
@@ -838,7 +836,7 @@ let micCalibStart = null, micCalibSamples = [], micNoiseFloor = null;
 let micSustainMs = 0, micLastMs = performance.now();
 async function requestMic(){
   if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-    hintSub.textContent = ''; hintDefaultHTML = 'No microphone?<span class="sub">Press &amp; Hold to Blow</span>'; hintEl.innerHTML = hintDefaultHTML;
+    hintSub.textContent = ''; hintDefaultHTML = 'No microphone?<span class="sub">Blow to Release the Bloom</span>'; hintEl.innerHTML = hintDefaultHTML;
     return;
   }
   try{
@@ -899,7 +897,7 @@ async function requestMic(){
     }
     poll();
   }catch(err){
-    hintDefaultHTML = 'No microphone?<span class="sub">Press &amp; Hold to Blow</span>';
+    hintDefaultHTML = 'No microphone?<span class="sub">Blow to Release the Bloom</span>';
     hintEl.innerHTML = hintDefaultHTML;
   }
 }
@@ -915,10 +913,10 @@ function frame(){
 
   ctx.clearRect(0,0,W,H);
 
-  // wind target from hold + mic — attack is snappy so a blow reads instantly,
-  // release eases off a little slower so it doesn't feel like a hard switch
+  // wind target from mic only — the flower responds to breath intensity,
+  // without any need for a press or hold gesture.
   const activeInput = (state===STATE.READY);
-  windTarget = activeInput ? clamp(Math.max(holding?1:0, micForce),0,1) : 0;
+  windTarget = activeInput ? clamp(micForce,0,1) : 0;
   windForce += (windTarget-windForce)*(windTarget>windForce?0.22:0.08);
 
   // camera
@@ -946,10 +944,11 @@ function frame(){
     if(isBlowing){
       blowEnergy += windForce*dt;
       if(windForce < BLOW_OFF){
+        const nextHint = blowPhaseIndex === 0 ? 'One more blow ✦' : (blowPhaseIndex === 1 ? 'Final blow ✦' : '');
         releaseGust(blowEnergy, now);
         isBlowing = false;
         blowEnergy = 0;
-        if(detachedCount/SEED_COUNT < 0.74) flashHint('Blow again ✦');
+        if(nextHint) flashHint(nextHint);
       }
     }
     // seeds queued by the current/most recent gust peel off in a quick,
@@ -979,7 +978,7 @@ function frame(){
   // wish granted trigger
   if(state===STATE.READY){
     const frac = detachedCount/SEED_COUNT;
-    if(frac >= 0.74){
+    if(blowPhaseIndex >= BLOW_RELEASE_FRACTIONS.length - 1 && frac >= 0.98){
       goGranted();
     }
   }

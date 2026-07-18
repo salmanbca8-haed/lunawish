@@ -196,31 +196,7 @@
       <ul id="wishList"></ul>
     </div>
 
-    <script type="module">
-      import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-      import { getAnalytics } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js';
-      import { getFirestore, collection, addDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-
-      const firebaseConfig = {
-        apiKey: 'AIzaSyDHmQqiNm5qmsk5KGpupZj_O4Ck8sgEUh0',
-        authDomain: 'lunawish-ee318.firebaseapp.com',
-        projectId: 'lunawish-ee318',
-        storageBucket: 'lunawish-ee318.firebasestorage.app',
-        messagingSenderId: '218292977596',
-        appId: '1:218292977596:web:3ba5e4518221f92ef675b9',
-        measurementId: 'G-S7WV9MVB6D',
-      };
-
-      const app = initializeApp(firebaseConfig);
-      let analytics = null;
-      try {
-        analytics = getAnalytics(app);
-      } catch (error) {
-        console.warn('Analytics unavailable', error);
-      }
-      const db = getFirestore(app);
-      const wishesRef = collection(db, 'wishes');
-
+    <script>
       const nameInput = document.getElementById('nameInput');
       const wishInput = document.getElementById('wishInput');
       const beginButton = document.getElementById('beginButton');
@@ -229,19 +205,62 @@
       const wishList = document.getElementById('wishList');
       const storageKey = 'make-wish-entries';
 
+      let firebaseReady = null;
+      let firebaseFirestore = null;
+      let wishesRef = null;
+
       if (!console.firebase) {
         console.firebase = function (label, payload) {
           console.info(`[firebase:${label}]`, payload);
         };
       }
 
+      async function ensureFirebase() {
+        if (firebaseReady !== null) {
+          return firebaseReady;
+        }
+
+        try {
+          const firebaseApp = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
+          const firebaseAnalytics = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js');
+          const firestoreModule = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+
+          const firebaseConfig = {
+            apiKey: 'AIzaSyDHmQqiNm5qmsk5KGpupZj_O4Ck8sgEUh0',
+            authDomain: 'lunawish-ee318.firebaseapp.com',
+            projectId: 'lunawish-ee318',
+            storageBucket: 'lunawish-ee318.firebasestorage.app',
+            messagingSenderId: '218292977596',
+            appId: '1:218292977596:web:3ba5e4518221f92ef675b9',
+            measurementId: 'G-S7WV9MVB6D',
+          };
+
+          const app = firebaseApp.initializeApp(firebaseConfig);
+          try {
+            firebaseAnalytics.getAnalytics(app);
+          } catch (error) {
+            console.warn('Analytics unavailable', error);
+          }
+
+          const db = firestoreModule.getFirestore(app);
+          wishesRef = firestoreModule.collection(db, 'wishes');
+          firebaseFirestore = firestoreModule;
+          firebaseReady = true;
+        } catch (error) {
+          console.warn('Firebase unavailable; continuing with local wish storage.', error);
+          firebaseReady = false;
+        }
+
+        return firebaseReady;
+      }
+
       async function saveWish(wishText) {
-        const name = (nameInput.value || '').trim();
+        const trimmedName = (nameInput.value || '').trim();
         const trimmed = (wishText || '').trim();
-        if (!trimmed) return;
+        if (!trimmed) return false;
 
         const entry = {
-          name: name || 'Anonymous',
+          name: trimmedName || 'Anonymous',
           text: trimmed,
           createdAt: new Date().toISOString(),
         };
@@ -250,13 +269,20 @@
         existing.push(entry);
         localStorage.setItem(storageKey, JSON.stringify(existing));
 
-        try {
-          await addDoc(wishesRef, entry);
-          console.firebase('wish-saved', entry);
-        } catch (error) {
-          console.error('Could not save wish to Firebase:', error);
-          console.firebase('wish-saved-fallback', entry);
+        const firebaseAvailable = await ensureFirebase();
+        if (firebaseAvailable && firebaseFirestore && wishesRef) {
+          try {
+            await firebaseFirestore.addDoc(wishesRef, entry);
+            console.firebase('wish-saved', entry);
+          } catch (error) {
+            console.error('Could not save wish to Firebase:', error);
+            console.firebase('wish-saved-fallback', entry);
+          }
+        } else {
+          console.firebase('wish-saved-local', entry);
         }
+
+        return true;
       }
 
       function renderWishes(entries) {
@@ -296,7 +322,7 @@
       beginButton.addEventListener('click', async (event) => {
         event.preventDefault();
         await saveWish(wishInput.value);
-        window.location.href = beginButton.getAttribute('href');
+        window.location.assign(beginButton.getAttribute('href'));
       });
 
       loadLocalWishes();

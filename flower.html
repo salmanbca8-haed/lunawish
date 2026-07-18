@@ -42,15 +42,15 @@
   canvas#fx{ position:absolute; inset:0; width:100%; height:100%; display:block; }
 
   #hint{
-    position:absolute; left:0; right:0; bottom:6.5%;
+    position:absolute; left:0; right:0; bottom:10%;
     text-align:center; color:rgba(255,244,224,0.82);
-    font-size:14px; letter-spacing:0.32em; text-transform:uppercase;
+    font-size:20px; letter-spacing:0.32em; text-transform:uppercase;
     font-weight:400; text-shadow:0 0 18px rgba(255,214,170,0.5);
     opacity:0; transition:opacity 1.1s ease;
     pointer-events:none; z-index:5; padding:0 20px;
   }
-  #hint.show{ opacity:1; }
-  #hint .sub{ display:block; font-size:11px; opacity:0.65; margin-top:6px; letter-spacing:0.28em; }
+  #hint.show{ opacity:10; }
+  #hint .sub{ display:block; font-size:20px; opacity:0.65; margin-top:10px; letter-spacing:0.28em; }
 
   #wishTitle{
     position:absolute; top:7%; left:0; right:0; text-align:center;
@@ -232,7 +232,7 @@
     <div class="sub">The wind has carried your wish beyond the horizon.</div>
   </div>
 
-  <div id="hint">Blow to Release the Bloom<span class="sub" id="hintSub"></span></div>
+  <div id="hint"><img src="./inflate-smoking-icon-man-blowing-260nw-2433027589-removebg-preview.png" alt="" srcset="" style="width: 80px; height: 80px;">Blow the air to Release the Bloom<span class="sub" id="hintSub"></span></div>
 
   <button id="muteBtn" title="Toggle sound">♪</button>
   <button id="micStatusBtn" title="Microphone">🎤</button>
@@ -253,7 +253,7 @@
     <div id="panel">
       <h1>make a wish</h1>
       <div class="tagline">The wind is listening.</div>
-      <input id="wishInput" type="text" placeholder="Whisper your wish..." maxlength="140" autocomplete="off">
+      <!-- <input id="wishInput" type="text" placeholder="Whisper your wish..." maxlength="140" autocomplete="off"> -->
       <button id="beginBtn">Begin</button>
       <div id="panelFooter">Uses your microphone to feel your breath — if it's unavailable, you can press &amp; hold instead.</div>
     </div>

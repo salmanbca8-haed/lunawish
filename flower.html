@@ -137,8 +137,62 @@
     font-size:15px; backdrop-filter:blur(6px);
   }
 
+  #micStatusBtn{
+    position:absolute; top:22px; right:70px; z-index:20;
+    width:38px; height:38px; border-radius:50%; border:1px solid rgba(255,255,255,0.25);
+    background:rgba(255,255,255,0.06); color:rgba(255,244,224,0.85);
+    display:none; align-items:center; justify-content:center; cursor:pointer;
+    font-size:15px; backdrop-filter:blur(6px);
+  }
+  #micStatusBtn.show{ display:flex; }
+  #micStatusBtn.denied{ border-color:rgba(255,140,140,0.55); color:rgba(255,190,190,0.95); }
+
+  /* Microphone permission overlay */
+  #micOverlay{
+    position:absolute; inset:0; z-index:30; display:flex; align-items:center; justify-content:center;
+    opacity:0; pointer-events:none; transition:opacity 0.35s ease;
+    padding:20px;
+  }
+  #micOverlay.show{ opacity:1; pointer-events:auto; }
+  #micOverlayBackdrop{
+    position:absolute; inset:0; background:rgba(15,6,24,0.55);
+    backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+  }
+  #micCard{
+    position:relative; width:min(380px, 90vw); padding:34px 28px 26px;
+    border-radius:28px; text-align:center;
+    background: linear-gradient(160deg, rgba(120,60,140,0.42), rgba(70,30,90,0.28));
+    border:1px solid var(--panel-border);
+    box-shadow: 0 30px 80px rgba(20,5,35,0.55), inset 0 1px 0 rgba(255,255,255,0.15);
+    backdrop-filter: blur(22px) saturate(140%);
+    -webkit-backdrop-filter: blur(22px) saturate(140%);
+  }
+  #micIcon{ font-size:30px; margin-bottom:12px; }
+  #micTitle{
+    margin:0 0 10px; font-weight:400; font-style:italic; color:var(--ivory);
+    font-size:clamp(20px,5vw,25px); letter-spacing:0.02em;
+  }
+  #micMsg{
+    margin:0 0 24px; font-size:13.5px; line-height:1.6; font-style:normal;
+    color:rgba(255,244,224,0.82); font-family: Georgia, 'Times New Roman', serif;
+  }
+  .mic-btn{
+    width:100%; padding:14px 20px; border-radius:999px;
+    background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.4);
+    color:var(--ivory); font-size:12.5px; letter-spacing:0.28em; text-transform:uppercase;
+    cursor:pointer; transition: background 0.3s ease, transform 0.2s ease;
+    font-family: Georgia, serif;
+  }
+  .mic-btn:active{ transform:scale(0.97); }
+  .mic-btn:hover{ background:rgba(255,255,255,0.16); }
+  #micDismissBtn{
+    margin-top:10px; background:transparent; border-color:transparent;
+    color:rgba(255,244,224,0.55); font-size:11px; letter-spacing:0.2em;
+  }
+
   @media (max-width:520px){
     #panel{ padding:36px 26px 24px; }
+    #micStatusBtn{ right:64px; }
   }
 </style>
 </head>
@@ -156,6 +210,18 @@
   <div id="hint">Blow to Release the Bloom<span class="sub" id="hintSub"></span></div>
 
   <button id="muteBtn" title="Toggle sound">♪</button>
+  <button id="micStatusBtn" title="Microphone">🎤</button>
+
+  <div id="micOverlay">
+    <div id="micOverlayBackdrop"></div>
+    <div id="micCard">
+      <div id="micIcon">🎤</div>
+      <h2 id="micTitle">Turn On Your Microphone</h2>
+      <p id="micMsg">Allow microphone access so the flower can feel your breath.</p>
+      <button id="micRetryBtn" class="mic-btn">Enable Microphone</button>
+      <button id="micDismissBtn" class="mic-btn">Continue without mic — press &amp; hold to blow instead</button>
+    </div>
+  </div>
 
   <div id="panelWrap">
     <div id="panelBackdrop"></div>
@@ -164,7 +230,7 @@
       <div class="tagline">The wind is listening.</div>
       <input id="wishInput" type="text" placeholder="Whisper your wish..." maxlength="140" autocomplete="off">
       <button id="beginBtn">Begin</button>
-      <div id="panelFooter">Uses your microphone to feel your breath.</div>
+      <div id="panelFooter">Uses your microphone to feel your breath — if it's unavailable, you can press &amp; hold instead.</div>
     </div>
   </div>
 </div>
@@ -726,6 +792,26 @@ function goReady(){
   hintEl.classList.add('show');
   requestMic();
 }
+
+/* ---------------------------------------------------------------
+   PRESS & HOLD FALLBACK — kicks in only when the mic isn't
+   available (denied, unsupported, or the user chose to skip it),
+   so the wish can still be made fully on mobile.
+--------------------------------------------------------------- */
+let holding = false;
+function setHold(v){
+  holding = v;
+  if(v) initAudio();
+}
+window.addEventListener('pointerdown', ()=>{
+  if(state!==STATE.READY || micAvailable) return;
+  if(panelWrap.classList.contains('show')) return;
+  if(micOverlay.classList.contains('show')) return;
+  setHold(true);
+});
+window.addEventListener('pointerup', ()=> setHold(false));
+window.addEventListener('pointercancel', ()=> setHold(false));
+window.addEventListener('blur', ()=> setHold(false));
 function goGranted(){
   state = STATE.GRANTED;
   grantedAt = performance.now()/1000;
@@ -830,23 +916,103 @@ document.getElementById('muteBtn').addEventListener('click', ()=>{
 /* ---------------------------------------------------------------
    MICROPHONE BLOW DETECTION
 --------------------------------------------------------------- */
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+
 let micForce = 0;
 let micAvailable = false;
 let micCalibStart = null, micCalibSamples = [], micNoiseFloor = null;
 let micSustainMs = 0, micLastMs = performance.now();
+
+const micOverlay = document.getElementById('micOverlay');
+const micIcon = document.getElementById('micIcon');
+const micTitle = document.getElementById('micTitle');
+const micMsg = document.getElementById('micMsg');
+const micRetryBtn = document.getElementById('micRetryBtn');
+const micDismissBtn = document.getElementById('micDismissBtn');
+const micStatusBtn = document.getElementById('micStatusBtn');
+
+function showMicOverlay(icon, title, msg, showRetry){
+  micIcon.textContent = icon;
+  micTitle.textContent = title;
+  micMsg.textContent = msg;
+  micRetryBtn.style.display = showRetry ? 'block' : 'none';
+  micOverlay.classList.add('show');
+}
+function hideMicOverlay(){ micOverlay.classList.remove('show'); }
+
+function useHoldFallback(){
+  micAvailable = false;
+  hintDefaultHTML = 'Press &amp; Hold to Blow';
+  if(hintEl.classList.contains('show') || state===STATE.READY){ hintEl.innerHTML = hintDefaultHTML; }
+  micStatusBtn.classList.add('show','denied');
+}
+
+function handleMicError(err){
+  const name = err && err.name;
+  if(name === 'NotAllowedError' || name === 'PermissionDeniedError' || name === 'SecurityError'){
+    const howTo = isIOS
+      ? 'Microphone access is blocked. Open Settings → Safari (or your browser app) → Microphone, allow it for this site, then come back and try again.'
+      : isMobile
+        ? 'Microphone access is blocked. Tap the lock or site-info icon next to the address bar, allow the microphone, then try again.'
+        : 'Microphone access is blocked. Click the camera/mic icon in your browser\'s address bar, allow it, then try again.';
+    showMicOverlay('🔒', 'Microphone Blocked', howTo, true);
+  } else if(name === 'NotFoundError' || name === 'DevicesNotFoundError'){
+    showMicOverlay('🎤', 'No Microphone Found', 'We couldn\'t find a working microphone on this device. You can still make your wish — press and hold anywhere to blow.', false);
+  } else {
+    showMicOverlay('🎤', 'Microphone Unavailable', 'We couldn\'t connect to your microphone. You can still make your wish — press and hold anywhere to blow.', true);
+  }
+  useHoldFallback();
+}
+
+micRetryBtn.addEventListener('click', ()=>{
+  hideMicOverlay();
+  requestMic();
+});
+micDismissBtn.addEventListener('click', ()=>{
+  hideMicOverlay();
+  useHoldFallback();
+});
+micStatusBtn.addEventListener('click', ()=>{
+  requestMic();
+});
+
 async function requestMic(){
   if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-    hintSub.textContent = ''; hintDefaultHTML = 'No microphone?<span class="sub">Blow to Release the Bloom</span>'; hintEl.innerHTML = hintDefaultHTML;
+    showMicOverlay('🎤', 'Microphone Not Supported', 'This browser doesn\'t support microphone access. You can still make your wish — press and hold anywhere to blow.', false);
+    useHoldFallback();
     return;
   }
+  let stream;
   try{
-    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    // Disable browser audio processing: echo cancellation, noise
+    // suppression and auto-gain are all tuned for speech and actively
+    // stamp out breath/wind sounds, which is why blowing often reads as
+    // nothing (especially on mobile). Raw audio lets the real breath
+    // signal through.
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation:false, noiseSuppression:false, autoGainControl:false, channelCount:1 }
+    });
+  }catch(e1){
+    try{
+      stream = await navigator.mediaDevices.getUserMedia({ audio:true });
+    }catch(e2){
+      handleMicError(e2);
+      return;
+    }
+  }
+  try{
     initAudio();
     const src = audioCtx.createMediaStreamSource(stream);
     const analyser = audioCtx.createAnalyser();
     analyser.fftSize = 1024;
     src.connect(analyser);
     micAvailable = true;
+    micStatusBtn.classList.remove('show','denied');
+    hideMicOverlay();
+    hintDefaultHTML = 'Blow to Release the Bloom';
+    if(state===STATE.READY) hintEl.innerHTML = hintDefaultHTML;
+    micCalibStart = null; micCalibSamples = []; micNoiseFloor = null; micSustainMs = 0;
     const freqData = new Uint8Array(analyser.frequencyBinCount);
     const timeData = new Uint8Array(analyser.fftSize);
 
@@ -897,8 +1063,8 @@ async function requestMic(){
     }
     poll();
   }catch(err){
-    hintDefaultHTML = 'No microphone?<span class="sub">Blow to Release the Bloom</span>';
-    hintEl.innerHTML = hintDefaultHTML;
+    showMicOverlay('🎤', 'Microphone Unavailable', 'Something went wrong setting up the microphone. You can still make your wish — press and hold anywhere to blow.', true);
+    useHoldFallback();
   }
 }
 
@@ -913,10 +1079,11 @@ function frame(){
 
   ctx.clearRect(0,0,W,H);
 
-  // wind target from mic only — the flower responds to breath intensity,
-  // without any need for a press or hold gesture.
+  // wind target from breath via the mic; if the mic is denied/unavailable,
+  // press & hold takes over so the wish still works fully on mobile.
   const activeInput = (state===STATE.READY);
-  windTarget = activeInput ? clamp(micForce,0,1) : 0;
+  const inputForce = micAvailable ? micForce : (holding ? 1 : 0);
+  windTarget = activeInput ? clamp(inputForce,0,1) : 0;
   windForce += (windTarget-windForce)*(windTarget>windForce?0.22:0.08);
 
   // camera

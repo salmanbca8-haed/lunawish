@@ -147,17 +147,17 @@
   #micStatusBtn.show{ display:flex; }
   #micStatusBtn.denied{ border-color:rgba(255,140,140,0.55); color:rgba(255,190,190,0.95); }
 
-  /* HARD DEBUG SYSTEM MONITOR PANELS */
+  /* COMPACT HARD DEBUG SYSTEM MONITOR PANELS */
   #hardDebugMonitor {
-    display: none; /* Changed from absolute to hidden to hide the audio hard check card */
-    position: absolute; top: 15px; left: 15px; z-index: 100;
-    background: rgba(0, 0, 0, 0.85); border: 1px solid #00ffcc;
-    color: #00ffcc; font-family: monospace; font-size: 11px;
-    padding: 12px; border-radius: 8px; width: 220px;
-    pointer-events: none; line-height: 1.4; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    position: absolute; top: 12px; left: 12px; z-index: 100;
+    background: rgba(0, 0, 0, 0.75); border: 1px solid rgba(0, 255, 204, 0.4);
+    color: #00ffcc; font-family: monospace; font-size: 9px;
+    padding: 6px 8px; border-radius: 6px; width: 165px;
+    pointer-events: none; line-height: 1.3; box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+    opacity: 0.75;
   }
   .debug-status-line { display: flex; justify-content: space-between; }
-  .debug-active { color: #fff; font-weight: bold; background: #00aa55; padding: 0 4px; border-radius: 3px; }
+  .debug-active { color: #fff; font-weight: bold; background: #00aa55; padding: 0 3px; border-radius: 2px; }
   .debug-inactive { color: #ff3333; }
 
   /* Microphone permission overlay */
@@ -212,15 +212,15 @@
 <body>
 
 <div id="scene">
-  <!-- Audio & Blow Diagnostic Monitor Panel -->
+  <!-- Audio & Blow Diagnostic Monitor Panel (Optimized Compact View) -->
   <div id="hardDebugMonitor">
-    <div style="text-align:center; font-weight:bold; border-bottom:1px dashed #00ffcc; padding-bottom:4px; margin-bottom:6px;">AUDIO HARD-CHECK</div>
+    <div style="text-align:center; font-weight:bold; border-bottom:1px dashed rgba(0,255,204,0.4); padding-bottom:2px; margin-bottom:4px; letter-spacing: 0.04em;">AUDIO CHECK</div>
     <div class="debug-status-line"><span>Mic Found:</span><span id="db-mic-found" class="debug-inactive">NO</span></div>
-    <div class="debug-status-line"><span>Audio Node State:</span><span id="db-node-state">OFF</span></div>
-    <div class="debug-status-line"><span>Input Strength (RMS):</span><span id="db-rms-level">0.000</span></div>
-    <div class="debug-status-line"><span>Dynamic Threshold:</span><span id="db-thresh-level">0.000</span></div>
-    <div class="debug-status-line"><span>Sustain Frame Count:</span><span id="db-sustain-ms">0ms</span></div>
-    <div class="debug-status-line" style="margin-top:4px; padding-top:4px; border-top:1px dashed #00ffcc;"><span>BLOWING TRIGGER:</span><span id="db-trigger-state" class="debug-inactive">FALSE</span></div>
+    <div class="debug-status-line"><span>Node State:</span><span id="db-node-state">OFF</span></div>
+    <div class="debug-status-line"><span>RMS Level:</span><span id="db-rms-level">0.0000</span></div>
+    <div class="debug-status-line"><span>Threshold:</span><span id="db-thresh-level">0.0000</span></div>
+    <div class="debug-status-line"><span>Sustain:</span><span id="db-sustain-ms">0ms</span></div>
+    <div class="debug-status-line" style="margin-top:3px; padding-top:3px; border-top:1px dashed rgba(0,255,204,0.4);"><span>TRIGGER:</span><span id="db-trigger-state" class="debug-inactive">FALSE</span></div>
   </div>
 
   <div id="hazeTop"></div>
@@ -643,6 +643,9 @@ function detachSeed(s, t, windForce, windDirX, windDirY){
   }
 }
 
+/* ---------------------------------------------------------------
+   WIND & FLIGHT SIMULATION CORRECTIONS
+--------------------------------------------------------------- */
 function currentWindAngle(t){
   const base = Math.atan2(windDirY, windDirX);
   return base + noise1(t*0.045, 777)*0.05;
@@ -738,7 +741,7 @@ let windForce = 0;
 let windTarget = 0;
 let windDirX = 0.15, windDirY = -0.35;
 let isBlowing = false, blowEnergy = 0, pendingReleases = [];
-const BLOW_ON = 0.15, BLOW_OFF = 0.08; /* Lowered triggers for higher sensitivity */
+const BLOW_ON = 0.15, BLOW_OFF = 0.08;
 let detachedCount = 0;
 let grantedAt = 0;
 let camZoom = 1, camZoomTarget = 1;
@@ -976,7 +979,7 @@ async function requestMic(){
     initAudio();
     const src = audioCtx.createMediaStreamSource(stream);
     const analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 512; // Lower window for responsive checks
+    analyser.fftSize = 512;
     src.connect(analyser);
 
     micAvailable = true;
@@ -1007,7 +1010,7 @@ async function requestMic(){
       if(nowMs - micCalibStart < 500){
         micCalibSamples.push(rms);
         micForce = 0;
-        dbThreshLevel.textContent = "CALIBRATING...";
+        dbThreshLevel.textContent = "CALIB...";
         requestAnimationFrame(poll);
         return;
       }
@@ -1016,17 +1019,15 @@ async function requestMic(){
         micNoiseFloor = micCalibSamples.length ? sum2/micCalibSamples.length : 0.015;
       }
 
-      // Tuned for high sensitivity blow detection
       const dynThreshold = Math.max(0.018, micNoiseFloor * 2.0);
       dbThreshLevel.textContent = dynThreshold.toFixed(4);
 
-      // A blow generates rapid noise differences
       const breathy = rms > dynThreshold;
       micSustainMs = breathy ? micSustainMs + dtms : Math.max(0, micSustainMs - dtms*2.0);
       dbSustainMs.textContent = Math.round(micSustainMs) + "ms";
 
       let target = 0;
-      if(micSustainMs > 60){ // 60ms continuous energy registers blow
+      if(micSustainMs > 60){ 
         target = clamp((rms-dynThreshold)*12, 0, 1);
       }
       micForce += (target-micForce)*(target>micForce ? 0.4 : 0.2);
@@ -1055,8 +1056,7 @@ function frame(){
   windTarget = activeInput ? clamp(inputForce,0,1) : 0;
   windForce += (windTarget-windForce)*(windTarget>windForce?0.25:0.08);
 
-  // Hard UI trigger diagnostics text update
-  dbTriggerState.textContent = isBlowing ? "BLOWING (ACTIVE)" : (windForce > BLOW_ON ? "READY TO BREAK" : "FALSE");
+  dbTriggerState.textContent = isBlowing ? "BLOWING" : (windForce > BLOW_ON ? "READY" : "FALSE");
   dbTriggerState.className = isBlowing ? "debug-active" : "debug-inactive";
 
   camZoom += (camZoomTarget-camZoom)*0.03;

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -329,3 +330,310 @@
     </script>
   </body>
 </html>
+=======
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Make a Wish</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: linear-gradient(to bottom, #2b1055 0%, #75225b 45%, #b54f5f 80%, #d37762 100%);
+        color: #fef9ff;
+        font-family: "Inter", "Segoe UI", Roboto, Arial, sans-serif;
+      }
+      canvas {
+        position: fixed;
+        inset: 0;
+        display: block;
+        width: 100%;
+        height: 100%;
+        z-index: 0;
+      }
+      .page {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        z-index: 1;
+      }
+      .glass-card {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        padding: 2rem;
+        pointer-events: none;
+      }
+      .card {
+        width: min(92vw, 430px);
+        padding: 2.3rem 2rem 2rem;
+        border-radius: 30px;
+        background: rgba(255, 255, 255, 0.14);
+        border: 1px solid rgba(255, 255, 255, 0.24);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+        box-shadow: 0 24px 60px rgba(12, 8, 28, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.26);
+        pointer-events: auto;
+      }
+      h1 {
+        margin: 0 0 0.35rem;
+        font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+        font-size: clamp(2rem, 4.3vw, 2.8rem);
+        font-weight: 400;
+        letter-spacing: 0.06em;
+        text-transform: lowercase;
+        color: #fff5ff;
+        text-align: center;
+      }
+      .eyebrow {
+        margin: 0 0 1.15rem;
+        text-align: center;
+        font-size: 0.72rem;
+        font-weight: 600;
+        letter-spacing: 0.36em;
+        text-transform: uppercase;
+        color: rgba(255, 240, 255, 0.8);
+      }
+      .input-line {
+        display: block;
+        margin: 1.4rem 0 1.2rem;
+        padding-bottom: 0.6rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+      }
+      .input-line input {
+        width: 100%;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: #fffdfb;
+        font-size: 0.98rem;
+        font-family: inherit;
+        padding: 0;
+      }
+      .input-line input::placeholder {
+        color: rgba(255, 255, 255, 0.67);
+      }
+      .input-line + .input-line {
+        margin-top: 0.8rem;
+      }
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        margin-top: 0.85rem;
+        border: 1px solid rgba(255, 255, 255, 0.45);
+        border-radius: 999px;
+        padding: 0.8rem 1.2rem;
+        background: rgba(255, 255, 255, 0.1);
+        color: #fff5ff;
+        letter-spacing: 0.24em;
+        text-transform: uppercase;
+        font-size: 0.78rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 180ms ease, background 180ms ease, box-shadow 180ms ease;
+        box-shadow: 0 10px 26px rgba(46, 20, 72, 0.16);
+      }
+      .button:hover {
+        transform: translateY(-1px);
+        background: rgba(255, 255, 255, 0.16);
+        box-shadow: 0 16px 38px rgba(46, 20, 72, 0.2);
+      }
+      .admin-dot {
+        position: fixed;
+        right: 0.95rem;
+        bottom: 0.95rem;
+        z-index: 4;
+        width: 0.8rem;
+        height: 0.8rem;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.8);
+        box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.16);
+        cursor: pointer;
+        opacity: 0.55;
+      }
+      .admin-panel {
+        position: fixed;
+        right: 1rem;
+        bottom: 2.4rem;
+        z-index: 5;
+        width: min(90vw, 320px);
+        max-height: 60vh;
+        overflow: auto;
+        padding: 0.95rem 1rem;
+        border-radius: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.24);
+        background: rgba(9, 5, 24, 0.82);
+        backdrop-filter: blur(12px);
+        box-shadow: 0 18px 42px rgba(0, 0, 0, 0.26);
+        display: none;
+      }
+      .admin-panel h3 {
+        margin: 0 0 0.65rem;
+        font-size: 0.8rem;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: rgba(255, 244, 255, 0.9);
+      }
+      .admin-panel ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        gap: 0.5rem;
+      }
+      .admin-panel li {
+        padding: 0.55rem 0.7rem;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.08);
+        font-size: 0.84rem;
+        line-height: 1.45;
+        color: rgba(255, 248, 255, 0.92);
+        word-break: break-word;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="scene"></canvas>
+    <div class="page">
+      <div class="glass-card">
+        <div class="card">
+          <h1>make a wish</h1>
+          <p class="eyebrow">THE WIND IS LISTENING</p>
+          <label class="input-line">
+            <input id="nameInput" type="text" placeholder="your name..." />
+          </label>
+          <label class="input-line">
+            <input id="wishInput" type="text" placeholder="whisper your wish here..." />
+          </label>
+          <a id="beginButton" class="button" href="flower.html">BEGIN</a>
+        </div>
+      </div>
+    </div>
+    <div id="adminDot" class="admin-dot" title="Admin wishes"></div>
+    <div id="adminPanel" class="admin-panel">
+      <h3>Saved wishes</h3>
+      <ul id="wishList"></ul>
+    </div>
+
+    <script type="module">
+      import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+      import { getAnalytics } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js';
+      import { getFirestore, collection, addDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+      const firebaseConfig = {
+        apiKey: 'AIzaSyDHmQqiNm5qmsk5KGpupZj_O4Ck8sgEUh0',
+        authDomain: 'lunawish-ee318.firebaseapp.com',
+        projectId: 'lunawish-ee318',
+        storageBucket: 'lunawish-ee318.firebasestorage.app',
+        messagingSenderId: '218292977596',
+        appId: '1:218292977596:web:3ba5e4518221f92ef675b9',
+        measurementId: 'G-S7WV9MVB6D',
+      };
+
+      const app = initializeApp(firebaseConfig);
+      let analytics = null;
+      try {
+        analytics = getAnalytics(app);
+      } catch (error) {
+        console.warn('Analytics unavailable', error);
+      }
+      const db = getFirestore(app);
+      const wishesRef = collection(db, 'wishes');
+
+      const nameInput = document.getElementById('nameInput');
+      const wishInput = document.getElementById('wishInput');
+      const beginButton = document.getElementById('beginButton');
+      const adminDot = document.getElementById('adminDot');
+      const adminPanel = document.getElementById('adminPanel');
+      const wishList = document.getElementById('wishList');
+      const storageKey = 'make-wish-entries';
+
+      if (!console.firebase) {
+        console.firebase = function (label, payload) {
+          console.info(`[firebase:${label}]`, payload);
+        };
+      }
+
+      async function saveWish(wishText) {
+        const name = (nameInput.value || '').trim();
+        const trimmed = (wishText || '').trim();
+        if (!trimmed) return;
+
+        const entry = {
+          name: name || 'Anonymous',
+          text: trimmed,
+          createdAt: new Date().toISOString(),
+        };
+
+        const existing = JSON.parse(localStorage.getItem(storageKey) || '[]');
+        existing.push(entry);
+        localStorage.setItem(storageKey, JSON.stringify(existing));
+
+        try {
+          await addDoc(wishesRef, entry);
+          console.firebase('wish-saved', entry);
+        } catch (error) {
+          console.error('Could not save wish to Firebase:', error);
+          console.firebase('wish-saved-fallback', entry);
+        }
+      }
+
+      function renderWishes(entries) {
+        wishList.innerHTML = '';
+        if (!entries.length) {
+          const item = document.createElement('li');
+          item.textContent = 'No wishes yet.';
+          wishList.appendChild(item);
+          return;
+        }
+
+        entries.slice().reverse().forEach((entry) => {
+          const item = document.createElement('li');
+          const label = entry.name ? `${entry.name}: ` : '';
+          item.textContent = `${label}${entry.text || entry.value || '—'}`;
+          wishList.appendChild(item);
+        });
+      }
+
+      function loadLocalWishes() {
+        try {
+          const saved = JSON.parse(localStorage.getItem(storageKey) || '[]');
+          renderWishes(saved);
+        } catch (error) {
+          renderWishes([]);
+        }
+      }
+
+      adminDot.addEventListener('click', () => {
+        const isVisible = adminPanel.style.display === 'block';
+        adminPanel.style.display = isVisible ? 'none' : 'block';
+        if (!isVisible) {
+          loadLocalWishes();
+        }
+      });
+
+      beginButton.addEventListener('click', async (event) => {
+        event.preventDefault();
+        await saveWish(wishInput.value);
+        window.location.href = beginButton.getAttribute('href');
+      });
+
+      loadLocalWishes();
+    </script>
+  </body>
+</html>
+>>>>>>> ecea9c7ab7cc570826bbf4c703f3d3b97af3062a
